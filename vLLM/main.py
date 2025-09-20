@@ -1,57 +1,36 @@
-from fastapi import FastAPI, HTTPException
-from contextlib import asynccontextmanager
-from vllm import LLM, SamplingParams
-from settings import AppConfig
-from prompts import SYSTEM_PROMPT_INPUT
-import re, json, logging
-from typing import Optional, List
+from openai import OpenAI
+import json
+import logging
+from typing import List
 from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
 import uvicorn
+from prompts import SYSTEM_PROMPT_INPUT, SECURITY_PROMPT_OUTPUT
 
+from settings import AppConfig
 
 config = AppConfig.from_env()
-
-llm: Optional[LLM] = None
-logger = logging.getLogger(__name__)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global llm
-    llm = LLM(
-        model="RefalMachine/RuadaptQwen2.5-7B-Lite-Beta",
-        dtype="float16",
-        tensor_parallel_size=1,
-        gpu_memory_utilization=0.90,
-        max_model_len=16384,
-        trust_remote_code=True,
-        disable_custom_all_reduce=True,
-        max_num_batched_tokens=4096,
-        max_num_seqs=32,
-        use_cuda_graph=True,
-        cudagraph_capture_sizes=[1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024],
-    )
-    print("Model loaded:", "RefalMachine/RuadaptQwen2.5-7B-Lite-Beta")
-    yield
+API_TOKEN = config.API_TOKEN
 
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="LLM Classifier API", lifespan=lifespan)
-
+client = OpenAI(
+    base_url="http://localhost:9000/v1",
+    api_key="token"
+)
 
 class Message(BaseModel):
     role: str
     content_text: str
 
-
 class ChatPayload(BaseModel):
     chat_id: int
     messages: List[Message]
-
 
 def extract_json_from_response(response: str):
     try:
@@ -67,19 +46,7 @@ def extract_json_from_response(response: str):
             return None
     return None
 
-
-def request_to_model(messages, llm_obj: LLM):
-    text_prompt = "\n".join([f"{m['role'].upper()}: {m.get('content') or m.get('content_text', '')}" for m in messages])
-
-
-    sampling_params = SamplingParams(
-        temperature=0.0,
-        max_tokens=4096
-    )
-
-    outputs = llm_obj.generate([text_prompt], sampling_params)
-    return outputs[0].outputs[0].text
-
+app = FastAPI(title="LLM Classifier API")
 
 @app.post("/process_chat")
 async def process_chat(payload: ChatPayload):
@@ -93,37 +60,48 @@ async def process_chat(payload: ChatPayload):
         user_msg = messages[i]
         assistant_msg = messages[i + 1]
         pairs_prompt.append(f"""
-Пара {i//2}:
-Сообщение пользователя:
-{user_msg.content_text}
+            Пара {i//2}:
+            Сообщение пользователя:
+            {user_msg.content_text}
 
-Ответ ассистента:
-{assistant_msg.content_text}
-""")
+            Ответ ассистента:
+            {assistant_msg.content_text}
+            """)
 
-    combined_prompt = f"""
-Определи метки для всех пар сообщений ниже.
+    combined_prompt = f"""{SYSTEM_PROMPT_INPUT}
+        Определи метки для всех пар сообщений ниже.
 
-Верни результат строго в JSON-массиве вида:
-[
-  {{
-    "id": 0,
-    "prompt_label": "<метка пользователя>",
-    "response_label": "<метка ассистента>"
-  }},
-  ...
-]
+        Верни результат строго в JSON-массиве вида:
+        [
+        {{
+            "id": 0,
+            "prompt_label": "<метка пользователя>",
+            "response_label": "<метка ассистента>"
+        }},
+        ...
+        ]
 
-Вот пары сообщений:
-{''.join(pairs_prompt)}
-"""
+        Вот пары сообщений:
+        {''.join(pairs_prompt)}
+        """
 
     model_messages = [
-        {"role": "system", "content": SYSTEM_PROMPT_INPUT},
+        {"role": "system", "content": SECURITY_PROMPT_OUTPUT},
         {"role": "user", "content": combined_prompt}
     ]
 
-    raw_response = request_to_model(model_messages, llm)
+    try:
+        response = client.chat.completions.create(
+            model="RefalMachine/RuadaptQwen2.5-7B-Lite-Beta",
+            messages=model_messages,
+            temperature=0.0,
+            max_tokens=4196,
+        )
+        raw_response = response.choices[0].message.content
+    except Exception as e:
+        logger.error(f"Error calling vLLM server: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get response from model server")
+
     parsed = extract_json_from_response(raw_response)
 
     if not parsed or not isinstance(parsed, list):
@@ -145,6 +123,5 @@ async def process_chat(payload: ChatPayload):
 
     return {"results": results}
 
-
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("client:app", host="0.0.0.0", port=8000, reload=True)
