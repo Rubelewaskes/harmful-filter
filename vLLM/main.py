@@ -9,7 +9,6 @@ from pydantic import BaseModel
 import uvicorn
 
 config = AppConfig.from_env()
-MODEL_ID = config.MODEL_ID
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ async def lifespan(app: FastAPI):
     global llm, sampling_params
 
     llm = LLM(
-        model=MODEL_ID,
+        model="RefalMachine/RuadaptQwen2.5-7B-Lite-Beta",
         tensor_parallel_size=1,
         dtype="half",
         trust_remote_code=True,
@@ -38,7 +37,7 @@ async def lifespan(app: FastAPI):
         skip_special_tokens=True,
     )
 
-    logger.info(f"Model loaded: {MODEL_ID}")
+    logger.info(f"Model loaded: RefalMachine/RuadaptQwen2.5-7B-Lite-Beta")
     yield
 
     if llm is not None:
