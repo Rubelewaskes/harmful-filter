@@ -6,6 +6,7 @@ from prompts import SYSTEM_PROMPT_INPUT
 import re, json, logging
 from typing import Optional, List
 from pydantic import BaseModel
+import uvicorn
 
 
 config = AppConfig.from_env()
@@ -151,5 +152,4 @@ async def process_chat(payload: ChatPayload):
 
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
