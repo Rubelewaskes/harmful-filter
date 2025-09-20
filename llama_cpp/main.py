@@ -36,7 +36,8 @@ async def lifespan(app: FastAPI):
         use_mmap=True,
         seed=42,
         rope_freq_base=1000000,
-        logits_all=False
+        logits_all=False,
+        verbose=True
     )
     print("Model loaded:", MODEL_PATH)
     yield
