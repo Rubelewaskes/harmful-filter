@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
         n_ctx=32768,
         n_gpu_layers=28,
         n_threads=8,
-        n_batch=4096,
+        n_batch=1024,
         n_gqa=8,
         flash_attn=True,
         offload_kqv=True,

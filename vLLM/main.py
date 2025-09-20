@@ -92,3 +92,7 @@ async def process_chat(payload: ChatPayload, authorization: Optional[str] = Head
         })
 
     return {"results": results}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
