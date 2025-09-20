@@ -64,22 +64,22 @@ def extract_json_from_response(response: str):
     try:
         return json.loads(response)
     except Exception:
-        return None
+        pass
 
-
-def extract_json_from_response(response: str):
-    m = re.search(r'\{\s*\"prompt_label\"\s*:\s*\".*?\".*?\"response_label\"\s*:\s*\".*?\"\s*\}', response, re.DOTALL)
+    m = re.search(r'\[.*\]', response, re.DOTALL)
     if m:
-        return extract_json_from_text(m.group())
+        try:
+            return json.loads(m.group())
+        except Exception:
+            return None
     return None
-
 
 
 def request_to_model(messages, llm_obj):
     out = llm_obj.create_chat_completion(
         messages=messages,
         temperature=0,
-        max_tokens=4096
+        max_tokens=4196
     )
     return out['choices'][0]['message']['content']
 
@@ -131,6 +131,7 @@ async def process_chat(payload: ChatPayload):
     parsed = extract_json_from_response(raw_response)
 
     if not parsed or not isinstance(parsed, list):
+        logger.error("Invalid model response: %s", raw_response)
         raise HTTPException(status_code=500, detail="Model did not return valid JSON list")
 
     results = []
