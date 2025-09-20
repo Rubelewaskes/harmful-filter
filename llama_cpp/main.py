@@ -22,10 +22,10 @@ async def lifespan(app: FastAPI):
     llm = Llama.from_pretrained(
         repo_id="RefalMachine/RuadaptQwen2.5-7B-Lite-Beta-GGUF",
         filename=MODEL_PATH,
-        n_ctx=8192,
+        n_ctx=32768,
         n_gpu_layers=99,
         n_threads=8,
-        n_batch=1024,
+        n_batch=4096,
         n_gqa=8,
         flash_attn=True,
         offload_kqv=False,
@@ -60,9 +60,9 @@ class ChatPayload(BaseModel):
     messages: List[Message]
 
 
-def extract_json_from_text(formatted: str):
+def extract_json_from_response(response: str):
     try:
-        return json.loads(formatted)
+        return json.loads(response)
     except Exception:
         return None
 
@@ -74,8 +74,13 @@ def extract_json_from_response(response: str):
     return None
 
 
+
 def request_to_model(messages, llm_obj):
-    out = llm_obj.create_chat_completion(messages=messages, temperature=0, max_tokens=128)
+    out = llm_obj.create_chat_completion(
+        messages=messages,
+        temperature=0,
+        max_tokens=4096
+    )
     return out['choices'][0]['message']['content']
 
 
@@ -86,41 +91,59 @@ async def process_chat(payload: ChatPayload):
     if not messages or len(messages) < 2:
         raise HTTPException(status_code=400, detail="Not enough messages")
 
-    results = []
+    # Формируем один батч со всеми парами
+    pairs_prompt = []
     for i in range(0, len(messages) - 1, 2):
         user_msg = messages[i]
         assistant_msg = messages[i + 1]
-
-        combined_prompt = f"""
-Определи метки для следующей пары сообщений.
-
+        pairs_prompt.append(f"""
+Пара {i//2}:
 Сообщение пользователя:
 {user_msg.content_text}
 
 Ответ ассистента:
 {assistant_msg.content_text}
+""")
 
-Верни результат строго в JSON:
-{{
-  "prompt_label": "<метка пользователя>",
-  "response_label": "<метка ассистента>"
-}}
-        """
+    combined_prompt = f"""
+Определи метки для всех пар сообщений ниже.
 
-        model_messages = [
-            {"role": "system", "content": SYSTEM_PROMPT_INPUT},
-            {"role": "user", "content": combined_prompt}
-        ]
+Верни результат строго в JSON-массиве вида:
+[
+  {{
+    "id": 0,
+    "prompt_label": "<метка пользователя>",
+    "response_label": "<метка ассистента>"
+  }},
+  ...
+]
 
-        raw_response = request_to_model(model_messages, llm)
-        parsed = extract_json_from_response(raw_response)
+Вот пары сообщений:
+{''.join(pairs_prompt)}
+"""
 
+    model_messages = [
+        {"role": "system", "content": SYSTEM_PROMPT_INPUT},
+        {"role": "user", "content": combined_prompt}
+    ]
+
+    raw_response = request_to_model(model_messages, llm)
+    parsed = extract_json_from_response(raw_response)
+
+    if not parsed or not isinstance(parsed, list):
+        raise HTTPException(status_code=500, detail="Model did not return valid JSON list")
+
+    results = []
+    for item in parsed:
         results.append({
             "chat_id": payload.chat_id,
-            "id": i // 2,
-            "prompt_label": parsed.get("prompt_label") if parsed else None,
-            "response_label": parsed.get("response_label") if parsed else None,
-            "parse_error": parsed is None
+            "id": item.get("id"),
+            "prompt_label": item.get("prompt_label"),
+            "response_label": item.get("response_label"),
+            "parse_error": (
+                "prompt_label" not in item or
+                "response_label" not in item
+            )
         })
 
     return {"results": results}
