@@ -32,12 +32,11 @@ async def lifespan(app: FastAPI):
         main_gpu=0,
         tensor_split=None,
         verbose=False,
-        use_mlock=False,
+        use_mlock=True,
         use_mmap=True,
         seed=42,
         rope_freq_base=1000000,
         logits_all=False,
-        verbose=True
     )
     print("Model loaded:", MODEL_PATH)
     yield
