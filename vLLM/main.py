@@ -20,15 +20,16 @@ async def lifespan(app: FastAPI):
     global llm
     llm = LLM(
         model="RefalMachine/RuadaptQwen2.5-7B-Lite-Beta",
-        tensor_parallel_size=1,
         dtype="float16",
-        trust_remote_code=True,
-        max_model_len=8192,
+        tensor_parallel_size=1,
         gpu_memory_utilization=0.90,
-        enforce_eager=True,
+        max_model_len=16384,
+        trust_remote_code=True,
         disable_custom_all_reduce=True,
         max_num_batched_tokens=4096,
         max_num_seqs=32,
+        use_cuda_graph=True,
+        cudagraph_capture_sizes=[1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024],
     )
     print("Model loaded:", "RefalMachine/RuadaptQwen2.5-7B-Lite-Beta")
     yield
