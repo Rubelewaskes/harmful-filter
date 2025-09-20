@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
         offload_kqv=False,
         main_gpu=0,
         tensor_split=None,
-        verbose=False,
+        verbose=True,
         use_mlock=True,
         use_mmap=True,
         seed=42,
