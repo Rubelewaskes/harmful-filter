@@ -10,7 +10,6 @@ import uvicorn
 
 
 config = AppConfig.from_env()
-API_TOKEN = config.API_TOKEN
 
 llm: Optional[LLM] = None
 logger = logging.getLogger(__name__)
