@@ -10,7 +10,6 @@ import uvicorn
 
 config = AppConfig.from_env()
 MODEL_ID = config.MODEL_ID
-API_TOKEN = config.API_TOKEN
 
 logger = logging.getLogger(__name__)
 
