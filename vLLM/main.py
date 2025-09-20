@@ -68,7 +68,8 @@ def extract_json_from_response(response: str):
 
 
 def request_to_model(messages, llm_obj: LLM):
-    text_prompt = "\n".join([f"{m.role.upper()}: {m.content_text}" for m in messages])
+    text_prompt = "\n".join([f"{m['role'].upper()}: {m.get('content') or m.get('content_text', '')}" for m in messages])
+
 
     sampling_params = SamplingParams(
         temperature=0.0,
