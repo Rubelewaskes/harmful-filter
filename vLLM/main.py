@@ -8,40 +8,24 @@ from typing import Optional, List
 from pydantic import BaseModel
 import uvicorn
 
-config = AppConfig.from_env()
 
-logger = logging.getLogger(__name__)
+config = AppConfig.from_env()
+API_TOKEN = config.API_TOKEN
 
 llm: Optional[LLM] = None
-sampling_params: Optional[SamplingParams] = None
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global llm, sampling_params
-
+    global llm
     llm = LLM(
         model="RefalMachine/RuadaptQwen2.5-7B-Lite-Beta",
         tensor_parallel_size=1,
-        dtype="half",
-        trust_remote_code=True,
-        max_model_len=32768,
-        gpu_memory_utilization=0.95,
-        enforce_eager=True,
+        gpu_memory_utilization=0.9
     )
-
-    sampling_params = SamplingParams(
-        temperature=0.0,
-        max_tokens=4196,
-        stop=["<|im_end|>"],
-        skip_special_tokens=True,
-    )
-
-    logger.info(f"Model loaded: RefalMachine/RuadaptQwen2.5-7B-Lite-Beta")
+    print("Model loaded:", "RefalMachine/RuadaptQwen2.5-7B-Lite-Beta")
     yield
-
-    if llm is not None:
-        del llm
 
 
 logging.basicConfig(
@@ -77,25 +61,15 @@ def extract_json_from_response(response: str):
     return None
 
 
-def format_chat_prompt(messages):
-    formatted = []
-    for msg in messages:
-        if msg.role == "system":
-            formatted.append(f"<|im_start|>system\n{msg.content_text}<|im_end|>")
-        elif msg.role == "user":
-            formatted.append(f"<|im_start|>user\n{msg.content_text}<|im_end|>")
-        elif msg.role == "assistant":
-            formatted.append(f"<|im_start|>assistant\n{msg.content_text}<|im_end|>")
+def request_to_model(messages, llm_obj: LLM):
+    text_prompt = "\n".join([f"{m.role.upper()}: {m.content_text}" for m in messages])
 
-    full_prompt = f"<|im_start|>system\n{SYSTEM_PROMPT_INPUT}<|im_end|>\n" + "\n".join(formatted)
-    full_prompt += "\n<|im_start|>assistant\n"
+    sampling_params = SamplingParams(
+        temperature=0.0,
+        max_tokens=4096
+    )
 
-    return full_prompt
-
-
-def request_to_model(messages):
-    prompt = format_chat_prompt(messages)
-    outputs = llm.generate(prompt, sampling_params, use_tqdm=False)
+    outputs = llm_obj.generate([text_prompt], sampling_params)
     return outputs[0].outputs[0].text
 
 
@@ -141,7 +115,7 @@ async def process_chat(payload: ChatPayload):
         {"role": "user", "content": combined_prompt}
     ]
 
-    raw_response = request_to_model(model_messages)
+    raw_response = request_to_model(model_messages, llm)
     parsed = extract_json_from_response(raw_response)
 
     if not parsed or not isinstance(parsed, list):
