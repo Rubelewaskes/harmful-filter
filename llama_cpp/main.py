@@ -57,7 +57,7 @@ def chunk_text(text: str, max_chars: int = MAX_CHARS):
         start = end
     return chunks
 
-async def query_llamacpp(prompt: str, max_tokens: int = 2048, temperature: float = 0.0) -> str:
+async def query_llamacpp(prompt: str, max_tokens: int = 256, temperature: float = 0.0) -> str:
     async with httpx.AsyncClient(timeout=300) as client:
         payload = {
             "model": "RefalMachine/RuadaptQwen2.5-7B-Lite-Beta",
@@ -86,7 +86,7 @@ async def process_long_message(chat_id: int, text: str, prompt: str):
 
 Ответь строго JSON-объектом или массивом. Заверши ответ маркером {JSON_END_MARKER}"""
         try:
-            resp = await query_llamacpp(combined_prompt, max_tokens=2048, temperature=0.0)
+            resp = await query_llamacpp(combined_prompt, max_tokens=256, temperature=0.0)
             parsed = extract_json_from_response(resp)
             if parsed:
                 all_labels.extend(parsed if isinstance(parsed, list) else [parsed])
@@ -174,7 +174,7 @@ async def process_chats(chat: ChatPayload):
             results.append(merged_result)
         else:
             try:
-                resp = await query_llamacpp(combined_prompt, max_tokens=2048, temperature=0.0)
+                resp = await query_llamacpp(combined_prompt, max_tokens=256, temperature=0.0)
                 parsed = extract_json_from_response(resp)
                 if parsed:
                     for item in (parsed if isinstance(parsed, list) else [parsed]):
