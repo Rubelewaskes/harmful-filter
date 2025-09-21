@@ -10,7 +10,7 @@ from collections import Counter
 import httpx
 import asyncio
 
-LLAMA_CPP_URL = "http://172.17.0.2:8000/v1/completions"
+LLAMA_CPP_URL = "http://172.17.0.2:8000/completions"
 MAX_CHARS = 15000
 
 logging.basicConfig(
@@ -56,8 +56,9 @@ async def query_llamacpp(prompt: str, max_tokens: int = 4196, temperature: float
         payload = {
             "model": "RefalMachine/RuadaptQwen2.5-7B-Lite-Beta",
             "prompt": prompt,
-            "max_tokens": max_tokens,
-            "temperature": temperature
+            "n_predict": max_tokens,
+            "temperature": temperature,
+            "stop": ["\n", "```"]
         }
         resp = await client.post(LLAMA_CPP_URL, json=payload)
         print(resp.json())
