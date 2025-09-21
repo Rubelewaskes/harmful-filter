@@ -41,7 +41,7 @@ app = FastAPI(title="LLM Classifier API")
 
 @app.post("/process_chats")
 async def process_chats(chat: ChatPayload):
-    logger.info("Received chat of %d messages", len(chat))
+    logger.info("Received chat of %d messages", len(chat.messages))
     results = []
     messages = chat.messages
     if not messages or len(messages) < 2:
