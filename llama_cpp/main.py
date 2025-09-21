@@ -62,10 +62,11 @@ async def query_llamacpp(prompt: str, max_tokens: int = 4196, temperature: float
         resp = await client.post(LLAMA_CPP_URL, json=payload)
         print(resp.json())
         resp.raise_for_status()
-        data = await resp.json()
-        if "results" in data and len(data["results"]) > 0:
-            return data["results"][0].get("text", "")
-        return data.get("text", "")
+        data = resp.json()
+        print("LLAMA.cpp response:", data)
+
+        return data["choices"][0].get("text", "")
+
 
 
 async def process_long_message(chat_id: int, text: str, prompt: str):
