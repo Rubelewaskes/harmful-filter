@@ -51,7 +51,7 @@ def chunk_text(text: str, max_chars: int = MAX_CHARS):
         start = end
     return chunks
 
-async def query_llamacpp(prompt: str, max_tokens: int = 512, temperature: float = 0.0) -> str:
+async def query_llamacpp(prompt: str, max_tokens: int = 4196, temperature: float = 0.0) -> str:
     async with httpx.AsyncClient(timeout=300) as client:
         payload = {
             "model": "RefalMachine/RuadaptQwen2.5-7B-Lite-Beta",
@@ -60,8 +60,13 @@ async def query_llamacpp(prompt: str, max_tokens: int = 512, temperature: float 
             "temperature": temperature
         }
         resp = await client.post(LLAMA_CPP_URL, json=payload)
+        print(resp.json())
         resp.raise_for_status()
-        return resp.json()["choices"][0]["text"]
+        data = await resp.json()
+        if "results" in data and len(data["results"]) > 0:
+            return data["results"][0].get("text", "")
+        return data.get("text", "")
+
 
 async def process_long_message(chat_id: int, text: str, prompt: str):
     chunks = chunk_text(text, MAX_CHARS)
