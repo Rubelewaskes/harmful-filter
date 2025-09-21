@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-client = OpenAI(base_url="http://localhost:8000/v1")
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
 
 class Message(BaseModel):
     role: str
