@@ -9,7 +9,7 @@ import re
 from collections import Counter
 import httpx
 
-LLAMA_CPP_URL = "http://172.17.0.2:8000/completions"
+LLAMA_CPP_URL = "http://172.17.0.2:8000/v1/completions"
 MAX_CHARS = 15000
 JSON_END_MARKER = "</JSON>"
 
