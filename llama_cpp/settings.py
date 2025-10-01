@@ -9,6 +9,7 @@ class AppConfig(BaseModel):
     MODEL_PATH: str = Field("FP16.gguf", env="MODEL_PATH")
     FILE_PATH: str = Field("chats-aia/chats-aia/chats/", env="FILE_PATH")
     OUT_FILE: str = Field("results.json", env="OUT_FILE")
+    
 
     @classmethod
     def from_env(cls):
